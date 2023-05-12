@@ -1,0 +1,158 @@
+#include <Wire.h>
+#include <VL53L0X.h>
+
+VL53L0X sensor;
+VL53L0X sensor2;
+
+int DISTANCE_F = 0; // Stores the calculated distance 
+byte high, low = 0;              // High and low byte of distance
+int shift = 0;                   // Value in shift bit register
+
+#define ADDRESS       0x80 >> 1  // Arduino uses 7 bit addressing so we shift address right one bit
+#define DISTANCE_REG  0x5E
+#define SHIFT         0x35
+
+// Motor 1
+int pwmA = 2; //PWM Out
+int in1A = 3; //For Forward
+int in2A = 4; //For Back
+int SpeedControlA = A0;  // Speed control pot
+int MotorSpeedA = 0; // Motor Speed
+
+// Motor 2
+int pwmB = 5; //PWM Out
+int in1B = 6; //For Forward
+int in2B = 7; //For Back
+int SpeedControlB = A0;  // Speed control pot
+int MotorSpeedB = 0; // Motor Speed
+
+
+void setup()
+{
+
+  pinMode(9, OUTPUT); //For Sensor XShut
+  pinMode(10, OUTPUT); //For Sensor2 XShut
+ 
+  digitalWrite(9, LOW); //Shutting sensor down
+  digitalWrite(10, LOW); //Shutting sensor2 down
+ 
+  delay(500);
+  Wire.begin(); //Start SDA
+
+  Serial.begin (19200); //Setting rate
+
+  //IR
+  
+  //This essentially transmitts to a certain address set above. 
+  //This code is from Robot-electronics example
+  Wire.beginTransmission(ADDRESS);    
+  Wire.write(SHIFT);
+  Wire.endTransmission();
+  //Requesting data
+  Wire.requestFrom(ADDRESS, 1);
+  while(Wire.available() == 0);
+  shift = Wire.read();
+
+
+  //SENSOR
+  //This is used to initiate one of the Vl53L0X and then re-address it so it can be singlely addressed. 
+  pinMode(9, INPUT);
+  delay(150);
+  sensor.init(true);
+  delay(100);
+  sensor.setAddress((uint8_t)22); //gives address 16
+
+  //SENSOR 2
+  pinMode(10, INPUT);
+  delay(150);
+  sensor2.init(true);
+  delay(100);
+  sensor2.setAddress((uint8_t)25); //gives address of 19
+
+  Serial.println("");
+  Serial.println("addresses set");
+  Serial.println("");
+  Serial.println("");
+
+//Sets the maximum time to wait for data from the sensors. 
+  sensor.setTimeout(500);
+  sensor2.setTimeout(500);
+
+//Setting Pins for MOTORA
+  pinMode(pwmA, OUTPUT);
+  pinMode(in1A, OUTPUT);
+  pinMode(in2A, OUTPUT);
+  
+//Setting Pins for MOTORA
+  pinMode(pwmB, OUTPUT);
+  pinMode(in1B, OUTPUT);
+  pinMode(in2B, OUTPUT);
+}
+
+void loop()
+{
+
+  //CHECK DISTANCES
+  long DISTANCE_L = (sensor.readRangeSingleMillimeters());
+  long DISTANCE_R = (sensor2.readRangeSingleMillimeters());
+
+  //L Sensor
+  
+    Serial.print("Distance L: ");
+    Serial.println(DISTANCE_L);
+    Serial.println("_________________________________");
+    Serial.println("");
+  
+  //R Sensor
+ 
+    Serial.print("Distance R: ");
+    Serial.println(DISTANCE_R);
+    Serial.println("_________________________________");
+    Serial.println("");
+  
+//IR 
+    // Request and read the 2 address bytes from the GP2Y0E02B
+  Wire.beginTransmission(ADDRESS);
+  Wire.write(DISTANCE_REG);
+  Wire.endTransmission();
+  
+  Wire.requestFrom(ADDRESS, 2);
+  
+  while(Wire.available() < 2);
+  
+  high = Wire.read();
+  low = Wire.read();
+  
+ DISTANCE_F = (high * 16 + low)/16/(int)pow(2,shift); // Calculate the range in CM
+
+ 
+  
+  Serial.print("Distance F: ");
+  Serial.print(DISTANCE_F);
+ Serial.println("_________________________________");
+   Serial.println("");
+  Serial.println();
+  Serial.println();
+  
+  //MOTOR
+  
+ // Set Motor A forward
+  digitalWrite(in1A, HIGH);
+  digitalWrite(in2A, LOW);
+  
+ // Set Motor B forward
+  digitalWrite(in1B, HIGH);
+  digitalWrite(in2B LOW);  
+  
+ // Read potentiometer and convert to range of 0-255
+  MotorSpeed = map(analogRead(SpeedControl), 0, 1023, 0, 255);
+
+     
+
+  // Set the motor speeds  
+  analogWrite(pwmA, MotorSpeed);
+  analogWrite(pwmB, MotorSpeed);
+
+  
+  delay(200);//can change to a lower time like 100
+}
